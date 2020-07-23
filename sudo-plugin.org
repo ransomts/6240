@@ -1,0 +1,1059 @@
+#+latex_class: article
+#+latex_class_options:
+#+latex_header:
+#+latex_header_extra:
+#+description:
+#+keywords:
+#+subtitle:
+#+latex_compiler: pdflatex
+#+date: \today
+#+author: Tim Ransom
+#+STARTUP: hideblocks
+#+PROPERTY: header-args:org :comments both :tangle-mode (identity #o444) :mkdirp yes
+
+
+* Motivation
+
+    - users mess up sudo a lot
+    - cleaning logs is hard
+    - but we still want that data!!
+
+* Writeups
+** Proposition
+   #+begin_src org :tangle /tmp/proposition.org
+,#+latex_class: IEEEtran
+,#+latex_class_options:
+,#+latex_header:
+,#+latex_header_extra:
+,#+description:
+,#+keywords:
+,#+subtitle:
+,#+latex_compiler: pdflatex
+,#+date: \today
+,#+author: Tim Ransom
+,#+title: Logging failed authorization attempts and an install request form using the sudo plugin API
+,#+subtitle: (title pending)
+,#+options: toc:nil
+
+,** Abstract
+
+   One of the most useful and commonly installed applications on Unix based systems is the utility =sudo=. This application is critical for live maintenance and highly configurable to fit the requirements of any system. In particular =sudo= has implemented a plugin system allows administrators to add their own functionality. We use this API to log the failed attempts of users and produce metrics for administrator review. 
+
+,** Background & Motivation
+   System administration often involves data collection that is transparent to the system users. The amount of resources used in the execution of their applications, the times and locations where resources are most accessed, and additional privileges requested for the execution are examples of potentially useful data points. There is a common access point for escalated privileges, namely the =sudo= application. 
+
+   Unix users often absent-mindedly invoke =sudo= when on a command prompt attempting to install software, access files, or use additional resources (eg run a webserver). Many system administrators have enabled an automated email to be sent on a failed attempt but simply ignore the message. The amount of information in each message is too low and difficult to contextualize to warrant the attention of the busy and wonderful systems staff. This motivates an application to aggregate and present this information rather than inundate email with every data point. 
+
+   Some users who are aware that emails are sent on failed attempts will intentionally spam attempts in order to gain the attention of the systems staff. These users are likely to forgo this practice when the time penalty for it is raised. The =sudo= plugin API allows a 'conversation' with the user when a failed login attempt requesting a package install has been parsed. Asking if the user wants to fill out a form can make the user feel more heard in their request and save unneeded emails.
+
+,** System Description
+,*** Failed attempt logging
+    The =sudo= plugin API (introduced in version 1.8) is accessed through either a compiled dynamic shared object or through statically compiling the policy into the =sudo= binary itself. Testing and deployment of this logging and install form policy will be handled through the shared object route for ease of deployment. 
+   
+    The logging of failed attempts is fairly simple; when the policy is activated a message is logged and then gathered nightly to be processed. The logging has two possibilities - either in a local, encrypted, temporary file which would be simple to implement or through a dbus access to journald which would be more efficient. 
+
+    Gathering of logs will be handled by a single node and happen while resource requirements are low in order to not bother the users. Frequent gatherings would help prevent data loss and processing of logs is not needed on every gathering.
+
+    Processing of gathered logs attempts to answer some obvious questions. Which commands are most commonly executed with =sudo=? Are some packages requested on certain hardware stacks more than others (ie are GPU related packages being asked for)? Simple questions can be answered with a generated text document, which is packaged in an email and sent to the system administration staff.
+
+,*** Package install request form
+    The conversation policy is much simpler to describe. When a failed attempt to use =sudo= to install a package with =apt= or equivalent tool is detected, the conversation is triggered. An example session is shown below, newlines have been added for clarity. The response will be packaged in an email and sent to the systems staff for consideration.
+
+    ,#+begin_example
+$ sudo apt install some-cool-package
+[sudo] password for tsranso: 
+Sorry, try again.
+[sudo] password for tsranso: 
+Sorry, incorrect password. Would you 
+like to submit a request to SoCIT to 
+install this package? (y/N) y
+
+Before we begin, have you considered 
+installing this package local to 
+your home directory? (y/N) y
+
+Succinctly, why should this package 
+be installed? 
+(Hitting enter sends the email)
+
+This package is super cool and makes
+ everything better.
+
+Thank you, the email has been sent.
+$
+    ,#+end_example
+   #+end_src
+
+** Milestone 2
+   #+begin_src org :tangle milestone2.org
+
+,#+latex_class: IEEEtran
+,#+latex_class_options:
+,#+latex_header:
+,#+latex_header_extra:
+,#+description:
+,#+keywords:
+,#+subtitle:
+,#+latex_compiler: pdflatex
+,#+date: \today
+,#+author: Tim Ransom
+,#+title: Logging failed authorization attempts and an install request form using the sudo plugin API (milestone)
+,#+subtitle: (title pending)
+,#+options: toc:nil
+,#+MACRO: clearpage @@latex:\\clearpage@@@@odt:<text:p text:style-name="PageBreak"/>@@
+
+,** bib file                                                        :noexport:
+
+   ,#+begin_src bibtex :tangle paper.bib
+                  @inproceedings{garfinkelHowMakeSecure2005,
+                    title = {How to Make Secure Email Easier to Use},
+                    booktitle = {Proceedings of the {{SIGCHI}} Conference on {{Human}} Factors in Computing Systems  - {{CHI}} '05},
+                    author = {Garfinkel, Simson L. and Margrave, David and Schiller, Jeffrey I. and Nordlander, Erik and Miller, Robert C.},
+                    date = {2005},
+                    pages = {701},
+                    publisher = {{ACM Press}},
+                    location = {{Portland, Oregon, USA}},
+                    doi = {10.1145/1054972.1055069},
+                    url = {http://portal.acm.org/citation.cfm?doid=1054972.1055069},
+                    urldate = {2020-07-14},
+                    abstract = {Cryptographically protected email has a justly deserved reputation of being difficult to use. Based on an analysis of the PEM, PGP and S/MIME standards and a survey of 470 merchants who sell products on Amazon.com, we argue that the vast majority of Internet users can start enjoying digitally signed email today. We present suggestions for the use of digitally signed mail in e-commerce and simple modifications to webmail systems that would significantly increase integrity, privacy and authorship guarantees that those systems make. We then show how to use the S/MIME standard to extend such protections Internet-wide. Finally, we argue that software vendors must make minor changes to the way that mail clients store email before unsophisticated users can safely handle mail that is sealed with encryption.},
+                    eventtitle = {The {{SIGCHI}} Conference},
+                    file = {/home/tsranso/Documents/zotero/storage/7DVA5S4W/Garfinkel et al. - 2005 - How to make secure email easier to use.pdf},
+                    isbn = {978-1-58113-998-3},
+                    langid = {english}
+                  }
+
+                  @article{kapadiaCaseStudyUsability2007,
+                    title = {A {{Case}} ({{Study}}) {{For Usability}} in {{Secure Email Communication}}},
+                    author = {Kapadia, Apu},
+                    date = {2007-03},
+                    journaltitle = {IEEE Security and Privacy Magazine},
+                    shortjournal = {IEEE Secur. Privacy Mag.},
+                    volume = {5},
+                    pages = {80--84},
+                    issn = {1540-7993},
+                    doi = {10.1109/MSP.2007.25},
+                    url = {http://ieeexplore.ieee.org/document/4140996/},
+                    urldate = {2020-07-14},
+                    file = {/home/tsranso/Documents/zotero/storage/Q43BHN7Q/Kapadia - 2007 - A Case (Study) For Usability in Secure Email Commu.pdf},
+                    langid = {english},
+                    number = {2}
+                  }
+
+                  @inproceedings{ruotiWeReSame2016,
+                    title = {"{{We}}'re on the {{Same Page}}": {{A Usability Study}} of {{Secure Email Using Pairs}} of {{Novice Users}}},
+                    shorttitle = {"{{We}}'re on the {{Same Page}}"},
+                    booktitle = {Proceedings of the 2016 {{CHI Conference}} on {{Human Factors}} in {{Computing Systems}}},
+                    author = {Ruoti, Scott and Andersen, Jeff and Heidbrink, Scott and O'Neill, Mark and Vaziripour, Elham and Wu, Justin and Zappala, Daniel and Seamons, Kent},
+                    date = {2016-05-07},
+                    pages = {4298--4308},
+                    publisher = {{Association for Computing Machinery}},
+                    location = {{San Jose, California, USA}},
+                    doi = {10.1145/2858036.2858400},
+                    url = {https://doi.org/10.1145/2858036.2858400},
+                    urldate = {2020-07-14},
+                    abstract = {Secure email is increasingly being touted as usable by novice users, with a push for adoption based on recent concerns about government surveillance. To determine whether secure email is ready for grassroots adoption, we employ a laboratory user study that recruits pairs of novice users to install and use several of the latest systems to exchange secure messages. We present both quantitative and qualitative results from 25 pairs of novice users as they use Pwm, Tutanota, and Virtru. Participants report being more at ease with this type of study and better able to cope with mistakes since both participants are "on the same page". We find that users prefer integrated solutions over depot-based solutions, and that tutorials are important in helping first-time users. Hiding the details of how a secure email system provides security can lead to a lack of trust in the system. Participants expressed a desire to use secure email, but few wanted to use it regularly and most were unsure of when they might use it.},
+                    file = {/home/tsranso/Documents/zotero/storage/8CLT8H66/Ruoti et al. - 2016 - We're on the Same Page A Usability Study of Sec.pdf},
+                    isbn = {978-1-4503-3362-7},
+                    keywords = {paired participants,secure email,usable security,user study},
+                    series = {{{CHI}} '16}
+                  }
+
+                  @article{thorpeSSUExtendingSSH1998,
+                    title = {{{SSU}}: {{Extending SSH}} for {{Secure Root Administration}}},
+                    author = {Thorpe, Christopher},
+                    date = {1998},
+                    pages = {11},
+                    abstract = {SSU†, ‘‘Secure su,’’ is a mechanism that uses SSH [Ylonen] to provide the security for distributing access to privileged operations. Its features include both shell or per-command access, a password for each user that is distinct from the login password and easily changed, and high portability. By installing SSU, administrators build a solid infrastructure for using SSH for improving security in other areas, such as file distribution and revision control.},
+                    file = {/home/tsranso/Documents/zotero/storage/9TKBUWTG/Thorpe - 1998 - SSU Extending SSH for Secure Root Administration.pdf},
+                    langid = {english}
+                  }
+
+                  @inproceedings{takayamaTrustUnderlyingFactor2006,
+                    title = {Trust as an Underlying Factor of System Administrator Interface Choice},
+                    booktitle = {{{CHI}} '06 {{Extended Abstracts}} on {{Human Factors}} in {{Computing Systems}}},
+                    author = {Takayama, Leila and Kandogan, Eser},
+                    date = {2006-04-21},
+                    pages = {1391--1396},
+                    publisher = {{Association for Computing Machinery}},
+                    location = {{Montréal, Québec, Canada}},
+                    doi = {10.1145/1125451.1125708},
+                    url = {https://doi.org/10.1145/1125451.1125708},
+                    urldate = {2020-07-14},
+                    abstract = {System administrators are the unsung heroes of the information age, working behind the scenes to configure, maintain, and troubleshoot the computer infrastructure that underlies much of modern life. While Graphical User Interfaces (GUIs) are being offered as system administration tools, they mostly continue to use Command-Line Interfaces (CLIs). Based on an extensive survey of system administrators, we provide insights regarding this preference, analyze why many of these power users perceive CLIs as more effective than GUIs, and discuss findings as supported by observations from our parallel field studies. Our analysis indicates that cognition-based trust and monitoring play major roles in the interface preference for CLIs vs. GUIs. We also propose next steps for further exploration of trust in human-computer interfaces.},
+                    file = {/home/tsranso/Documents/zotero/storage/IMJ9ABFV/Takayama and Kandogan - 2006 - Trust as an underlying factor of system administra.pdf},
+                    isbn = {978-1-59593-298-3},
+                    keywords = {command-line interfaces,graphical user interfaces,system administration,trust},
+                    series = {{{CHI EA}} '06}
+                  }
+
+                  @inproceedings{christiansen1989op,
+                    title={Op: a flexible tool for restricted superuser access},
+                    author={Christiansen, Tom},
+                    booktitle={Proceedings of the Workshop on Large Installation Systems Administration III (USENIX Association: Berkeley, CA)},
+                    pages={89},
+                    year={1989}
+                  }
+
+
+
+   ,#+end_src
+
+
+,** Abstract                                                        :noexport:
+
+   One of the most useful and commonly installed applications on Unix based systems is the utility =sudo=. This application is critical for live maintenance and highly configurable to fit the requirements of any system. In particular =sudo= has implemented a plugin system allows administrators to add their own functionality. We use this API to log the failed attempts of users and produce metrics for administrator review. 
+
+,** Background & Motivation                                         :noexport:
+   System administration often involves data collection that is transparent to the system users. The amount of resources used in the execution of their applications, the times and locations where resources are most accessed, and additional privileges requested for the execution are examples of potentially useful data points. There is a common access point for escalated privileges, namely the =sudo= application. 
+
+   Unix users often absent-mindedly invoke =sudo= when on a command prompt attempting to install software, access files, or use additional resources (eg run a webserver). Many system administrators have enabled an automated email to be sent on a failed attempt but simply ignore the message. The amount of information in each message is too low and difficult to contextualize to warrant the attention of the busy and wonderful systems staff. This motivates an application to aggregate and present this information rather than inundate email with every data point. 
+
+   Some users who are aware that emails are sent on failed attempts will intentionally spam attempts in order to gain the attention of the systems staff. These users are likely to forgo this practice when the time penalty for it is raised. The =sudo= plugin API allows a 'conversation' with the user when a failed login attempt requesting a package install has been parsed. Asking if the user wants to fill out a form can make the user feel more heard in their request and save unneeded emails.
+
+,** System Description                                              :noexport:
+,*** Failed attempt logging
+    The =sudo= plugin API (introduced in version 1.8) is accessed through either a compiled dynamic shared object or through statically compiling the policy into the =sudo= binary itself. Testing and deployment of this logging and install form policy will be handled through the shared object route for ease of deployment. 
+   
+    The logging of failed attempts is fairly simple; when the policy is activated a message is logged and then gathered nightly to be processed. The logging has two possibilities - either in a local, encrypted, temporary file which would be simple to implement or through a dbus access to journald which would be more efficient. 
+
+    Gathering of logs will be handled by a single node and happen while resource requirements are low in order to not bother the users. Frequent gatherings would help prevent data loss and processing of logs is not needed on every gathering.
+
+    Processing of gathered logs attempts to answer some obvious questions. Which commands are most commonly executed with =sudo=? Are some packages requested on certain hardware stacks more than others (ie are GPU related packages being asked for)? Simple questions can be answered with a generated text document, which is packaged in an email and sent to the system administration staff.
+
+,*** Package install request form
+    The conversation policy is much simpler to describe. When a failed attempt to use =sudo= to install a package with =apt= or equivalent tool is detected, the conversation is triggered. An example session is shown below, newlines have been added for clarity. The response will be packaged in an email and sent to the systems staff for consideration.
+
+    ,#+begin_example
+$ sudo apt install some-cool-package
+[sudo] password for tsranso: 
+Sorry, try again.
+[sudo] password for tsranso: 
+Sorry, incorrect password. Would you 
+like to submit a request to SoCIT to 
+install this package? (y/N) y
+
+Before we begin, have you considered 
+installing this package local to 
+your home directory? (y/N) y
+
+Succinctly, why should this package 
+be installed? 
+(Hitting enter sends the email)
+
+This package is super cool and makes
+ everything better.
+
+Thank you, the email has been sent.
+$
+    ,#+end_example
+
+    {{{clearpage}}}
+
+,** Academic Justification
+
+
+,**** Justification for CLI
+     System administrators have a fondness for command line applications. Takayama et al found that CLI interfaces significantly outrank GUI interfaces in trustworthiness, reliability, robustness, accuracy, and likeability cite:takayamaTrustUnderlyingFactor2006. These results are shown in figure [[fig:cli-gui]], and show that the general trend of system administrators favoring CLI. This gives us motivation to stick to the traditional text based interface for the development of our sudo plugin. Historical alternatives to Cortisans sudo such as Yahoo's ssu cite:thorpeSSUExtendingSSH1998 or Tom Christiansen's op cite:christiansen1989op also featured command line based interfaces despite the prevelance of GUI's at their respective times of development and adoption.
+
+
+     ,#+NAME:   fig:cli-gui
+     [[file:cli-gui.png]]
+
+,**** Justification for data collection method
+     Email is a critical tool for system administrators, for both communication with users and with aggrigating and reporting system information. Look no further than the immense amount of work cite:ruotiWeReSame2016,garfinkelHowMakeSecure2005,kapadiaCaseStudyUsability2007 already present in the security of these messages for their importance to system administrators and the world at large. 
+
+
+,** Progress
+
+   I have written the frontend of the code that will communicate with the user. The source code for this can be found at the end of this document in the appendix. This also parses their justification for request to a system command to send the email. This format has been tested on the ada machines part of the SoC public lab. This program will be invoked by the sudo plugin, or integrated into the sudo API. 
+
+   I have also collected, cleaned, parsed, and analyzed the backlog of fail authorization attempts from my Clemon email account. This generated a database of about 1200 attempts to generate past reports from. Of which over 500 include attempts to use the advanced package tool. Graphs of this data have not been generated but the entries are prepared.
+
+   There are a small number of 'moving parts' in this plugin, so the testing primarily consists of witnessing the functionality of the code. Some safety measures are put in place to ensure obvious issues like lack of data do not cause problems; however it should be noted that this application while useful is not necessary for the function of the system. For this reason the testing will be limited to good coding standards rather than full verification and validation required for needed features.
+
+,** Challenges
+   
+   The sudo API (like many open source projects) lacks clear documentation to specify an entry point for writing a plugin. The script for information gathering is complete but the invocation as a sudo hook has yet to be added. It is likely this will be the most difficult part of this project as the example plugins in the mercurial repository are tightly coupled with the sudo source code. 
+
+,** Bibliography
+   bibliographystyle:unsrt
+   bibliography:paper.bib
+
+,** Appendix
+
+,*** Frontend source code
+    ,#+begin_src C :tangle /tmp/form.c
+#include <stdio.h>
+#include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
+
+int ask_yn_question(char * question) {
+  
+  char answer[8]; // memory is cheap, spring for the extra few bytes for extra cache speed ;)
+  printf("%s (yN) ", question);
+  scanf("%s", &answer);
+  
+  // for ( ; *answer; ++answer) *answer = tolower(*answer);
+  for(int i = 0; answer[i]; i++){
+    answer[i] = tolower(answer[i]);
+  }
+  
+  return strcmp(answer, "yes") || strcmp(answer, "y");
+}
+
+int get_install_justification(char * justification) {
+  printf("Succinctly, why should this package be installed?\n");
+  printf("(Hitting enter sends the email, C-c to quit, you have one tweet of space (280 chars))\n\n");
+  scanf("%s", justification);
+}
+
+int send_request_email(char * justification) {
+  // the user gets 280 characters, the command needs 60
+  char mail_command[340] = "mail -s 'request for program install' tsranso@clemson.edu <<< '"; 
+  
+  strcat(mail_command, justification);
+  strcat(mail_command, "'");
+  printf("%s\n", mail_command);
+  printf("email, has been sent :)\n");
+  return 0;
+}
+
+int main(){
+  int response;
+  response = 
+    ask_yn_question("Would you like to submit a request to SoCIT to install this package?");
+  if (!response) exit(0);
+
+  response = ask_yn_question("Before we begin, have you considered \
+installing this package local to your home directory?");
+  if (!response) exit(0);
+
+  char justification[280]; // the length of one tweet
+  get_install_justification(justification);
+
+  return send_request_email(justification);
+}
+    ,#+end_src
+
+,*** Sending an email with bash
+    ,#+begin_src bash :dir /ssh:access:/home/tsranso
+mail -s 'test message subject' tsranso@clemson.edu <<< 'message body'
+    ,#+end_src
+
+
+   #+end_src
+
+** Final Paper
+
+   #+begin_src org :comments link :tangle paper.org :tangle-mode (identity #o600)
+,#+latex_class: acmart
+,#+latex_class_options: [sigplan,screen]
+,#+latex_header:
+,#+latex_header_extra:
+,#+description:
+,#+keywords:
+,#+subtitle:
+,#+latex_compiler: pdflatex
+,#+date: \today
+,#+title: Sudo log scraping daemon and request form
+,#+options: toc:nil title:nil author:nil
+,#+MACRO: color @@html:<span style="color: $1">$2</span>@@@@latex:\textcolor{$1}{$2}@@@@odt:<text:span text:style-name="$1">$2</text:span>@@
+,#+MACRO: comment
+
+,#+begin_export latex
+\begin{abstract}
+
+  Interactions of the users with the system itself can be an excellent source of knowledge regarding their requirements and desires. The sudo utility is a widely adopted permission authorization utility, included on the vast majority of Unix and Unix-like operating systems. In this work we extend the sudo application to include a front facing request form for application installation and scrape sudo logs to present information to the system administrators in a way that is easy to interpret, parse, and extend.
+  
+\end{abstract}
+
+\author{Tim Ransom}
+\email{tsranso@clemson.edu}
+\affiliation{
+  \institution{Clemson University}
+  \city{Clemson}
+  \state{South Carolina}
+}
+\maketitle
+,#+end_export
+,* Introduction
+
+  System administration is a tedious and often difficult career within the information technology sector. Typical bureaucratic issues such as under-funding, understaffing, overextending are common sights for sysadmins, leading many to judiciously allocate their time to the most critical issues of the day. For this reason many sysadmins automate every process they can, gathering latent information into aggrigated forms for explicit review is a valuable use of time for a systems department. We have produced a system to procure, process, and present data regarding what users are trying to install (without permission).
+
+,* Background
+,** Privilege escalation applications
+
+   Over the years there have been many applications and systems to manage user privileges over a system. Some implementations of note include Yahoo's ssu application cite:thorpeSSUExtendingSSH1998, userv from the GNU project cite:UservUserServices and recently doas from the OpenBSD community cite:holsteinNholsteinOpenDoas2020. Sudo has become the standard application as it fits the vast majority of administration needs, is stable, and has been in circulation since 1980.
+
+   As all of these applications allow for users to cause damage to the system they all share a focus on the security of their code. Sudo has implemented a plugin system to allow users to extend to fit their use cases cite:SudoSCALE9xPdf
+,** Linux logging systems
+
+   Linux has two logging systems in common use, often running concurrently. Journald is the modern logging option being a part of the systemd infrastructure. It typically stores it logs in a compressed binary format that is accessed by the journalctl utility. The syslog logging system is significantly older than journald and store it's logs as plaintext files which are then compressed once a significant amount has been accumulated. 
+
+   Sudo makes heavy use of the syslog logging option, likely because it predates journald by several decades, is well integrated into standard C libraries, and is a well adopted convention. Logs output by syslog invocations are typically output to the =/var/log= directory, and modern sudo releases are printing specifically to =/var/log/auth= as specified in it's default configuration.
+
+,** Sysadmin preferences
+
+   System administrators have a deep appreciation for command line applications. They consistently race higher than graphical interfaces in terms of trustworthiness, reliability, robustness, accuracy, and likability cite:takayamaTrustUnderlyingFactor2006. These results are shown in figure [[fig:cli-gui]], and show a general trend of system administrators favoring command line. In particular we would like to draw attention to the robustness and reliability results. Being able to quickly rework existing tools to answer new questions is a hallmark of effective sysadmins, which is the direct application of robust/reliable applications.
+
+     ,#+NAME:   fig:cli-gui
+     [[file:cli-gui.png]]
+
+     For similar reasons to command line interfaces, email is often a tool of choice for administrators. In addition to the direct line of communication to users it provides email is very commonly applied to produce system health reports generated by remote scripts. These plaintext messages can be processed with the same tools as any other text analyzer. 
+
+,* Development goals
+  
+,** Ease of Use and Extension
+   In order to be a genuinely useful tool, it must operate mostly independent of administrator action. There is a bounty of thoroughly tested and trusted applications to construct our application from, and the source code can be constructed from commonly understood tools should it need modified. Documentation is included as part of the literate programming style to aid an administrator understand the inner workings without an elder sage to help them.
+
+,** Ease of Integration and Deployment
+   
+   Scripts and daemons of all sizes include install scripts that place executable in known locations and verify library locations. We include one as well, which is integrated into the literate document described further in section [[*Literate style programming]].
+
+,* Methodology and Design
+
+,** Client server design
+   
+   For our purposes the server is just any computer able to connect via ssh to all the machines to be monitored. The logs are pulled from the client machines over an ssh command and collated into a plaintext file for database storage. Security of the logs is relegated to the file permissions of ordinary Unix systems - the administrator may share the file if they choose but they must change the permissions themselves.
+   
+   The clients here have a small utility copied into any directory in the global =$PATH= variable which we have named =socit-request-form=. This asks the user two questions: (1) if they would like to request some software to be installed and (2) if they have attempted to install this package locally. These questions are to establish that the user is aware of what they are doing and have at least thought about an alternative to use their requested software without needing assistance. A micro change to the sudoers plugin has also been made; such that when a failed sudo attempt is processed the system tells the user about the existence of the =socit-request-form=. We are attempting to illuminate the appropriate steps to installing or requesting software without opening these utilities to abuse.
+
+,** A preference for standard tools
+
+   For the log gathering, there is a preference to use commonly installed tools from the Ubuntu repositories. It is not a far stretch to say that the utilities =ssh= and =grep= are installed, which are the only two tools (with some shell piping) required to gather the logs over the network. Once the report is generated there is one final call to =mail= to send the message to the =socit@clemson.edu= mailing list.
+
+   While scripting languages like shell can often be the best tool for collecting and organizing text, data processing is increasingly being done in Python. Note that all text processing could be done in a combination of awk and sed, but Python is currently a more used language and has powerful functional features such as filter and map.
+
+   The C programming language was chosen to implement the application install request form. This is not an application that users need to see the inner workings of and produces a small binary size to minimize network copy time and disk usage. The compilation and distribution of this executable is handled as part of the shell installation script.
+   
+,* Implementation
+,** Literate style programming
+   
+   Literate programming cite:knuthLiterateProgramming1984 has quitely been resurgent in computer science literature in the last few years cite:keryStoryNotebookExploratory2018. Advantages of the literate style include integrated documentation in plain (not source code) language, inter-language interoperability, and critically for our application - reproducibility cite:schulte_MultiLanguageComputingEnvironment2012. We make use of the same org mode emacs package described in the work by Schulte et al in order to leverage these advantages and neatly describe the process of constructing the project. (In fact this very document is part of that org mode file.)
+
+,** Platform notes
+   This application is directly intended for the School of Computing at Clemson University. As such the target platform is the long term support version 18.04 of Ubuntu, this informs us to the location of logs, the content of log entries, and the supported build options for the application install request form. The sudo install on our School of Computing machines is generally standard, version 1.8.16, with the one notable exception of an additional PAM module to enable two factor authentication. 
+
+,* Results
+
+  The source code (in the lovely literate style) can be cloned from a git repository at https://github.com/ransomts/6240.git, note that this does not include the backlog of Clemson user data. The output of the described system is quoted below, we present a section of the generated package install report that is emailed to the system administration and a sample interaction with the package install request form. 
+
+  As with any software project, there should be a mention of the efficiency and possible bottlenecks in the developed systems. As the logs are accumulated over time on the server, the Python script to generate the report will eventually slow down. However this would require several orders of magnitude more logs than is reasonable to be generated by the users of the School of Computing hardware.
+
+,** Display section of generated email
+
+   Below is an excerpt from the report generated by the Python script. Initial data was mined from the backlog of emails sent by sudo from 2018-2020. There are several classes of machines in use with different hardware stacks at Clemson. Being able to determine which packages are being requested for each class is a useful data set for staff to determine what to focus on.
+   
+   ,#+begin_verse
+  total logs: 1244
+  requests for installs: 416
+
+  Most requested packages for all machines
+  Most requested logs, and how many times they were asked for:
+  [['xz-utils', 9], ['software-properties-common', 9], ['build-essential', 10], ['atom', 10], ['zip', 12], ['unzip', 22]]
+
+  Most requested packages for machine class joey
+  Most requested logs, and how many times they were asked for:
+  [['build-essential', 5], ['zip', 5], ['software-properties-common', 5], ['valgrind', 6], ['er.run', 6], ['unzip', 15]]
+   ,#+end_verse
+,** Sudo error message addition
+
+   ,#+begin_verse
+tsranso-ubuntu-vm 18:29 ~$ sudo ls /root
+Password: 
+Sorry, try again.
+Password: 
+Sorry, try again.
+Password: 
+sudo: 3 incorrect password attempts, if you would like to request additional resources email socit@clemson.edu or run the command 'socit-request-form'
+   ,#+end_verse
+
+,** Display conversation session with user
+
+   ,#+begin_verse
+tsranso-ubuntu-vm 17:20 ~$ socit-request-form 
+Would you like to submit a request to SoCIT to install this package? (yN) y
+Before we begin, have you considered installing this package local to your home directory? (yN) y
+Succinctly, why should this package be installed?
+(Hitting enter sends the email, C-c to quit, you have one tweet of space (280 chars))
+
+This package is super cool
+email, has been sent :)
+tsranso-ubuntu-vm 17:20 ~$ 
+   ,#+end_verse
+
+,* Conclusions
+  We have produced a small bit of source code to aid in a common task for system administrators - keeping up with the user requested packages to install. We note the current state of system administration as a combination of pipelining stable packages and leveraging modern python data processing to archive this. In addition there is a sizable amount of literature on the use of CLI interfaces in system administration  contexts and literate programming to justify our choice in implementation. To end we would like to quote the fourth entry in the Unix philosophy presented by Doug McIlroy cite:BSTJ57JulyAugust1978: "Use tools in preference to unskilled help to lighten a programming task, even if you have to detour to build the tools and expect to throw some of them out after you've finished using them."
+
+,* Bibliography
+
+   bibliographystyle:ACM-Reference-Format
+   bibliography:~/Documents/references.bib
+
+,* bib file                                                         :noexport:
+
+   ,#+begin_src bibtex :tangle paper.bib
+                  @inproceedings{garfinkelHowMakeSecure2005,
+                    title = {How to Make Secure Email Easier to Use},
+                    booktitle = {Proceedings of the {{SIGCHI}} Conference on {{Human}} Factors in Computing Systems  - {{CHI}} '05},
+                    author = {Garfinkel, Simson L. and Margrave, David and Schiller, Jeffrey I. and Nordlander, Erik and Miller, Robert C.},
+                    date = {2005},
+                    pages = {701},
+                    publisher = {{ACM Press}},
+                    location = {{Portland, Oregon, USA}},
+                    doi = {10.1145/1054972.1055069},
+                    url = {http://portal.acm.org/citation.cfm?doid=1054972.1055069},
+                    urldate = {2020-07-14},
+                    abstract = {Cryptographically protected email has a justly deserved reputation of being difficult to use. Based on an analysis of the PEM, PGP and S/MIME standards and a survey of 470 merchants who sell products on Amazon.com, we argue that the vast majority of Internet users can start enjoying digitally signed email today. We present suggestions for the use of digitally signed mail in e-commerce and simple modifications to webmail systems that would significantly increase integrity, privacy and authorship guarantees that those systems make. We then show how to use the S/MIME standard to extend such protections Internet-wide. Finally, we argue that software vendors must make minor changes to the way that mail clients store email before unsophisticated users can safely handle mail that is sealed with encryption.},
+                    eventtitle = {The {{SIGCHI}} Conference},
+                    file = {/home/tsranso/Documents/zotero/storage/7DVA5S4W/Garfinkel et al. - 2005 - How to make secure email easier to use.pdf},
+                    isbn = {978-1-58113-998-3},
+                    langid = {english}
+                  }
+
+                  @article{kapadiaCaseStudyUsability2007,
+                    title = {A {{Case}} ({{Study}}) {{For Usability}} in {{Secure Email Communication}}},
+                    author = {Kapadia, Apu},
+                    date = {2007-03},
+                    journaltitle = {IEEE Security and Privacy Magazine},
+                    shortjournal = {IEEE Secur. Privacy Mag.},
+                    volume = {5},
+                    pages = {80--84},
+                    issn = {1540-7993},
+                    doi = {10.1109/MSP.2007.25},
+                    url = {http://ieeexplore.ieee.org/document/4140996/},
+                    urldate = {2020-07-14},
+                    file = {/home/tsranso/Documents/zotero/storage/Q43BHN7Q/Kapadia - 2007 - A Case (Study) For Usability in Secure Email Commu.pdf},
+                    langid = {english},
+                    number = {2}
+                  }
+
+                  @inproceedings{ruotiWeReSame2016,
+                    title = {"{{We}}'re on the {{Same Page}}": {{A Usability Study}} of {{Secure Email Using Pairs}} of {{Novice Users}}},
+                    shorttitle = {"{{We}}'re on the {{Same Page}}"},
+                    booktitle = {Proceedings of the 2016 {{CHI Conference}} on {{Human Factors}} in {{Computing Systems}}},
+                    author = {Ruoti, Scott and Andersen, Jeff and Heidbrink, Scott and O'Neill, Mark and Vaziripour, Elham and Wu, Justin and Zappala, Daniel and Seamons, Kent},
+                    date = {2016-05-07},
+                    pages = {4298--4308},
+                    publisher = {{Association for Computing Machinery}},
+                    location = {{San Jose, California, USA}},
+                    doi = {10.1145/2858036.2858400},
+                    url = {https://doi.org/10.1145/2858036.2858400},
+                    urldate = {2020-07-14},
+                    abstract = {Secure email is increasingly being touted as usable by novice users, with a push for adoption based on recent concerns about government surveillance. To determine whether secure email is ready for grassroots adoption, we employ a laboratory user study that recruits pairs of novice users to install and use several of the latest systems to exchange secure messages. We present both quantitative and qualitative results from 25 pairs of novice users as they use Pwm, Tutanota, and Virtru. Participants report being more at ease with this type of study and better able to cope with mistakes since both participants are "on the same page". We find that users prefer integrated solutions over depot-based solutions, and that tutorials are important in helping first-time users. Hiding the details of how a secure email system provides security can lead to a lack of trust in the system. Participants expressed a desire to use secure email, but few wanted to use it regularly and most were unsure of when they might use it.},
+                    file = {/home/tsranso/Documents/zotero/storage/8CLT8H66/Ruoti et al. - 2016 - We're on the Same Page A Usability Study of Sec.pdf},
+                    isbn = {978-1-4503-3362-7},
+                    keywords = {paired participants,secure email,usable security,user study},
+                    series = {{{CHI}} '16}
+                  }
+
+                  @article{thorpeSSUExtendingSSH1998,
+                    title = {{{SSU}}: {{Extending SSH}} for {{Secure Root Administration}}},
+                    author = {Thorpe, Christopher},
+                    date = {1998},
+                    pages = {11},
+                    abstract = {SSU†, ‘‘Secure su,’’ is a mechanism that uses SSH [Ylonen] to provide the security for distributing access to privileged operations. Its features include both shell or per-command access, a password for each user that is distinct from the login password and easily changed, and high portability. By installing SSU, administrators build a solid infrastructure for using SSH for improving security in other areas, such as file distribution and revision control.},
+                    file = {/home/tsranso/Documents/zotero/storage/9TKBUWTG/Thorpe - 1998 - SSU Extending SSH for Secure Root Administration.pdf},
+                    langid = {english}
+                  }
+
+                  @inproceedings{takayamaTrustUnderlyingFactor2006,
+                    title = {Trust as an Underlying Factor of System Administrator Interface Choice},
+                    booktitle = {{{CHI}} '06 {{Extended Abstracts}} on {{Human Factors}} in {{Computing Systems}}},
+                    author = {Takayama, Leila and Kandogan, Eser},
+                    date = {2006-04-21},
+                    pages = {1391--1396},
+                    publisher = {{Association for Computing Machinery}},
+                    location = {{Montréal, Québec, Canada}},
+                    doi = {10.1145/1125451.1125708},
+                    url = {https://doi.org/10.1145/1125451.1125708},
+                    urldate = {2020-07-14},
+                    abstract = {System administrators are the unsung heroes of the information age, working behind the scenes to configure, maintain, and troubleshoot the computer infrastructure that underlies much of modern life. While Graphical User Interfaces (GUIs) are being offered as system administration tools, they mostly continue to use Command-Line Interfaces (CLIs). Based on an extensive survey of system administrators, we provide insights regarding this preference, analyze why many of these power users perceive CLIs as more effective than GUIs, and discuss findings as supported by observations from our parallel field studies. Our analysis indicates that cognition-based trust and monitoring play major roles in the interface preference for CLIs vs. GUIs. We also propose next steps for further exploration of trust in human-computer interfaces.},
+                    file = {/home/tsranso/Documents/zotero/storage/IMJ9ABFV/Takayama and Kandogan - 2006 - Trust as an underlying factor of system administra.pdf},
+                    isbn = {978-1-59593-298-3},
+                    keywords = {command-line interfaces,graphical user interfaces,system administration,trust},
+                    series = {{{CHI EA}} '06}
+                  }
+
+                  @inproceedings{christiansen1989op,
+                    title={Op: a flexible tool for restricted superuser access},
+                    author={Christiansen, Tom},
+                    booktitle={Proceedings of the Workshop on Large Installation Systems Administration III (USENIX Association: Berkeley, CA)},
+                    pages={89},
+                    year={1989}
+                  }
+
+
+
+   ,#+end_src
+   #+end_src
+
+* Initial Data
+
+This has been scraped from my email logs of sudo requests, courtesy of mbsync which I use to locally work with my gmail maildirs.
+
+  #+name: raw-data
+  #+begin_src bash :results drawer
+grep -r COMMAND ~/.emacs.d/Maildir/tsranso/Automated/security\ information/cur/ > /home/tsranso/sudo-logs/log-db.cur
+  #+end_src
+
+* Client code
+
+  Code that is run on the client machine is very minimal. The sudo logs already have what we want but we do want to give them a little [[*socit request form][utility]] to email easier and [[*Sudo policy modification][modify the sudo failure prompt]] to tell them about it.
+
+** Client code
+   
+*** Sudo policy modification
+
+A small edit has been made to the sudo plugin [[file:sudo/plugins/sudoers/logging.c::"%u incorrect password attempts, if you would like to request additional resources email socit@clemson.edu or run the command 'socit-request-form'", tries), tries));][sudoers]]. This source tree can be installed with the traditional ./configure && make -j && sudo make install to try out. Note that the executable is installed to [[/usr/local/bin/]] so verify it's the correct sudo executable you want.
+
+*** socit request form
+
+    We do not have as strict of security needs as the official sudo repo, so an external executable to communicate with the user is sufficient.
+
+**** source code
+
+   #+begin_src C :tangle /tmp/socit-request-form.c
+#include <stdio.h>
+#include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
+
+int ask_yn_question(char * question) {
+  
+  char answer[3]; // memory is cheap, spring for the extra two bytes
+  printf("%s (yN) ", question);
+  scanf("%s", &answer);
+  
+  // for ( ; *answer; ++answer) *answer = tolower(*answer);
+  for(int i = 0; answer[i]; i++){
+    answer[i] = tolower(answer[i]);
+  }
+  
+  return strcmp(answer, "yes") || strcmp(answer, "y");
+}
+
+int get_install_justification(char * justification) {
+  printf("Succinctly, why should this package be installed?\n");
+  printf("(Hitting enter sends the email, C-c to quit, you have one tweet of space (280 chars))\n\n");
+  scanf("%s", justification);
+}
+
+int send_request_email(char * justification) {
+  // the user gets 280 characters, the command needs 60
+  char mail_command[340] = "mail -s 'request for program install' socit@clemson.edu <<< '"; 
+  
+  // strcpy(mail_command, "mail -s 'request for program install' socit@clemson.edu <<< ");
+  strcat(mail_command, justification);
+  strcat(mail_command, "'");
+  // printf("%s\n", mail_command);
+  int status = system(mail_command);
+  printf("email, has been sent :)\n");
+  return status;
+}
+
+int main(){
+  int response;
+  response = ask_yn_question("Would you like to submit a request to SoCIT to install this package?");
+  //printf("%d\n", response);
+  // if (response != 0) exit(0);
+
+  response = ask_yn_question("Before we begin, have you considered installing this package local to your home directory?");
+  //printf("%d\n", response);
+  /// if (response != 0) exit(0);
+
+  char justification[280]; // the length of one tweet
+  get_install_justification(justification);
+
+  return send_request_email(justification);
+}
+   #+end_src
+
+**** Deployment
+
+     Be sure to tangle first
+
+   #+begin_src bash :dir /sudo::/tmp/
+gcc socit-request-form.c -o socit-request-form
+cp socit-request-form 
+chmod a+x /usr/local/bin/socit-request-form
+rm socit-request-form
+echo 'finished'
+   #+end_src
+
+   #+RESULTS:
+   : finished
+
+** Collect sudo logs
+Sudo is already logging the failed attempts and what the users were trying to do.
+
+[[file:/var/log/auth.log::Jul 20 11:45:20 tsranso-ubuntu-vm sudo: tsranso : 3 incorrect password attempts ; TTY=pts/0 ; PWD=/var/log ; USER=root ; COMMAND=/usr/bin/ls][an example log entry]]
+
+Note that when the server asks the machines for their sudo logs they are prefaced with the machine name.
+
+This is the section of code that is sent over an ssh request to gather the logs, cross check with [[collection-log][collection-log]] to verify use case.
+
+  #+begin_src bash :results output
+echo 'not_my_real_password' | sudo -S grep 'sudo' /var/log/auth.log* 2>/dev/null
+  #+end_src
+
+* Sever daemon
+
+** Server code
+*** Collect logs and add to database
+    
+  #+name: collection-log
+  #+begin_src bash :results output :tangle ~/sudo-logs/ransom-pull-all.sh :shebang /bin/bash
+db_file=/home/tsranso/sudo-logs/log-db.cur
+tims_password=not_really_my_password
+
+if [ -f $db_file ]; then
+    cat log-db* > log-db-archive
+fi
+
+function ask_machines() {
+    for i in $(seq 1 18); do ssh ada$i     "echo $tims_password | sudo -S grep 'sudo' /var/log/auth.log* 2>/dev/null"; done
+    for i in $(seq 1 35); do ssh babbage$i "echo $tims_password | sudo -S grep 'sudo' /var/log/auth.log* 2>/dev/null"; done
+    for i in $(seq 1 21); do ssh joey$i    "echo $tims_password | sudo -S grep 'sudo' /var/log/auth.log* 2>/dev/null"; done
+    for i in $(seq 1 20); do ssh cerf$i    "echo $tims_password | sudo -S grep 'sudo' /var/log/auth.log* 2>/dev/null"; done
+    for i in $(seq 1 5);  do ssh titan$i   "echo $tims_password | sudo -S grep 'sudo' /var/log/auth.log* 2>/dev/null"; done
+}
+
+function add_logs_to_db () {
+    ask_machines | grep -e 'user NOT in sudoers' -e 'install' >> $db_file
+}
+
+add_logs_to_db
+
+mail -s 'sudo report' tsranso@clemson.edu < $(python3 parse-sudo-db.py)
+  #+end_src
+
+*** process logs
+
+    This raw data was gathered from the backlog of sudo emails already in my gmail
+    #+INCLUDE: "private-data.org"
+
+  #+NAME: parse-sudo-logs
+  #+begin_src python :tangle ~/sudo-logs/parse-sudo-db.py :results output :shebang "#!/usr/bin/env python3" :cache yes :noweb no-export
+
+<<rawData>>
+
+# an example entry:
+#   /home/tsranso/.emacs.d/Maildir/tsranso/Automated/security information/cur/1586536789.200676_9487.tengen,U=1092:2,S:joey4.computing.clemson.edu : Feb 21 21:04:33 : etichen : user NOT in sudoers ; TTY=pts/13 ; PWD=/home/etichen/cpsc2100 ; USER=root ; COMMAND=/usr/bin/apt install sublime-text
+
+
+
+import pprint
+import re
+from string import digits
+
+logs = raw.split("\n")
+
+def make_report (logs):
+    def install_request_in_log(log):
+        return 'install' in log["command"]
+    install_logs = list(filter(install_request_in_log, logs))
+    num_install_requests = len(install_logs)
+    #print(install_logs)
+    print(F"total logs:", (len(logs)))
+    print(F"requests for installs:", (num_install_requests))
+    print()
+
+    def global_requested_packages(logs):
+        def pull_command(log):
+            command = ''
+            try:
+                command = log["command"].split("install")[1].strip()
+            except:
+                command = ''
+            return command
+
+        requested_packages = sorted(list(map(pull_command , logs)))
+        for rp in requested_packages:
+            if " " in rp:
+                requested_packages.remove(rp)
+                for p in rp.split(' '):
+                    requested_packages.append(p)
+        requested_packages = list(filter(None, requested_packages))
+        package_counts = [[x,requested_packages.count(x)] for x in set(requested_packages)]
+
+        print("Most requested logs, and how many times they were asked for:")
+        print(sorted(package_counts, key=lambda x : x[1])[-6:])
+        print()
+
+    print("Most requested packages for all machines")
+    global_requested_packages(logs)
+
+    remove_digits = str.maketrans('', '', digits)
+    for machine in set(map(lambda x : x["machine"].split(".")[0].translate(remove_digits), install_logs)):
+        print("Most requested packages for machine class", machine)
+        global_requested_packages(list(filter(lambda x : machine in x["machine"], install_logs)))
+
+    def get_user_stats (logs):
+        user_counts = [[user, len(list(filter(lambda x : x["user"] == user, logs)))] for user in set(map(lambda log : log["user"], logs))]
+        print("Users with high sudo failures, maybe email them?")
+        high_failure_users = list(filter(lambda user_entry : user_entry[1] > 10, sorted(user_counts, key=lambda x : x[1])))
+        print(high_failure_users)
+        
+    get_user_stats(logs)
+
+def processLog(log):
+    splitLog = re.split(':|;', log)
+    logDict = {}
+    try:
+        logDict = {
+            'command' : splitLog[11].split('=')[1].lower(),
+            'date' : F"{splitLog[3]}:{splitLog[4]}:{splitLog[5]}".strip(),
+            'user' : splitLog[6].strip(),
+            'machine' : splitLog[2].strip(),
+            'pwd' : splitLog[9].split('=')[1].strip()
+        }
+        #        print('good dict')
+    except:
+        logDict = {}
+        #        print('bad dict')
+    return logDict
+
+# processed = pool.map(processLog,logs)
+# print('yay')
+# pprint.pprint(processed[0:3])
+processed = list()
+for log in logs:
+    #pprint.pprint(processLog(log))
+    pl = processLog(log)
+    if pl:
+        processed.append(pl)
+        #print(pl)
+        #        print(f'{processLog(log)["user"]} {processLog(log)["command"]}')
+# print(processed)
+make_report(processed)
+
+    
+  #+end_src
+
+  #+RESULTS[b4b940d8d124bbcafc286334120af946e2c72ed6]:
+  #+begin_example
+  total logs: 1244
+  requests for installs: 416
+
+  Most requested packages for all machines
+  Most requested logs, and how many times they were asked for:
+  [['xz-utils', 9], ['software-properties-common', 9], ['build-essential', 10], ['atom', 10], ['zip', 12], ['unzip', 22]]
+
+  Most requested packages for machine class cerf
+  Most requested logs, and how many times they were asked for:
+  [['nodejs', 2], ['xbacklight', 2], ['simplescreenrecorder', 2], ['flex', 2], ['atom', 2], ['unzip', 2]]
+
+  Most requested packages for machine class babbage
+  Most requested logs, and how many times they were asked for:
+  [['uncrustify', 1], ['cmake', 1], ['filezilla_3.39.0_x86_64-linux-gnu.tar.bz2', 1], ['libcurl4-openssl-dev', 1], ['software-properties-common', 2], ['linux-tools-common', 2]]
+
+  Most requested packages for machine class melete
+  Most requested logs, and how many times they were asked for:
+  [['.run', 1]]
+
+  Most requested packages for machine class www
+  Most requested logs, and how many times they were asked for:
+  [['vim', 1]]
+
+  Most requested packages for machine class joey
+  Most requested logs, and how many times they were asked for:
+  [['build-essential', 5], ['zip', 5], ['software-properties-common', 5], ['valgrind', 6], ['er.run', 6], ['unzip', 15]]
+
+  Most requested packages for machine class lab
+  Most requested logs, and how many times they were asked for:
+  [['--kivy', 1], ['python3-tk', 1], ['openvpn', 1], ['git-core', 2], ['-y', 2], ['zfsutils-linux', 2]]
+
+  Most requested packages for machine class warriors
+  Most requested logs, and how many times they were asked for:
+  [['libncurses-dev', 1], ['samtools', 1]]
+
+  Most requested packages for machine class minion
+  Most requested logs, and how many times they were asked for:
+  [['xscreensaver', 1], ['xscreensaver-gl-extra', 1], ['xscreensaver-data-extre', 1]]
+
+  Most requested packages for machine class dragon
+  Most requested logs, and how many times they were asked for:
+  [['zip', 1], ['libav-tools', 1], ['sysinfo', 1], ['nvidia-440', 1], ['zip unzip', 1], ['kazam', 2]]
+
+  Most requested packages for machine class titan
+  Most requested logs, and how many times they were asked for:
+  [['sox', 1], ['perf', 1]]
+
+  Most requested packages for machine class dpa
+  Most requested logs, and how many times they were asked for:
+  [['dconf-tools', 1], ['libglfw3-dev', 1], ['build-essential', 1]]
+
+  Most requested packages for machine class chuck
+  Most requested logs, and how many times they were asked for:
+  [['mbr', 1]]
+
+  Most requested packages for machine class fibonacci
+  Most requested logs, and how many times they were asked for:
+  [['pulp', 1]]
+
+  Most requested packages for machine class tutor
+  Most requested logs, and how many times they were asked for:
+  [['python3.6-dev', 1], ['python3.5', 1], ['python3.6-dev libmysqlclient-dev', 1], ['libmysqlclient-dev', 1], ['simplescreenrecorder', 1], ['shutter', 2]]
+
+  Most requested packages for machine class newton
+  Most requested logs, and how many times they were asked for:
+  [['selectors', 1], ['chmod', 1], ['openvpn', 1], ['sshpass', 2], ['xz-utils', 2], ['slap', 2]]
+
+  Most requested packages for machine class webapp
+  Most requested logs, and how many times they were asked for:
+  [['chmod', 1], ['ffmpeg', 1]]
+
+  Most requested packages for machine class ada
+  Most requested logs, and how many times they were asked for:
+  [['virt-viewer', 2], ['python3-tk', 3], ['snapd', 3], ['atom', 4], ['xz-utils', 4], ['qemu', 5]]
+
+  Most requested packages for machine class access
+  Most requested logs, and how many times they were asked for:
+  [['gcc-arm*', 3], ['gcc', 3], ['unzip', 3], ['gdb', 4], ['bind9', 5], ['zip', 5]]
+
+  Users with high sudo failures, maybe email them?
+<<list has been removed for privacy reasons>>
+  #+end_example
+
+** Deployment
+   Add [[log collection script][collection-log]] to cron job on administrators machine, or run manually from command line. The log archive is dropped into the variable db_file in [[collection-log][collection-log]], which can be grep-ed normally.
+
+* Code segments                                                    :noexport:
+
+** outside executable
+
+** Prompt user for input
+   #+begin_src C :tangle /tmp/prompt.c :comments both
+#include <stdio.h>
+
+int main(){
+  char answer;
+  printf("\nWould you like to play? Enter Y or N: \n");
+  scanf(" %c", &answer);
+  printf("\n answer is %c\n", answer);
+  while (answer == 'Y'){
+
+    printf("Success!");
+
+    printf("\nDo you want to play again? Y or N: \n");
+
+    scanf(" %c", &answer);
+    printf("\n answer is %c\n", answer);
+
+  }
+  printf("GoodBye!");
+  return 0;
+}
+   #+end_src
+
+   #+begin_src sh :dir /tmp :results verbatim :comments both
+gcc -o prompt prompt.c
+./prompt <<< 'y'
+printf '\n\n----------------------\n'
+./prompt <<< 'n'
+   #+end_src
+
+   #+RESULTS:
+   #+begin_example
+
+   Would you like to play? Enter Y or N: 
+
+    answer is y
+   GoodBye!
+
+   ----------------------
+
+   Would you like to play? Enter Y or N: 
+
+    answer is n
+   GoodBye!
+   #+end_example
+
+** sudo api
+
+   #+name: sudo-api
+   #+begin_src C :comments both
+struct policy_plugin {
+#define SUDO_IO_PLUGIN 2
+#define SUDO_RANSOM_PLUGIN 2
+  unsigned int type; /* always SUDO_IO_PLUGIN */
+  unsigned int version; /* always SUDO_API_VERSION */
+  int (*open)(unsigned int version, sudo_conv_t conversation,
+	      sudo_printf_t plugin_printf, char * const settings[],
+	      char * const user_info[], char * const command_info[],
+	      int argc, char * const argv[], char * const user_env[],
+	      char * const plugin_options[], const char **errstr);
+  void (*close)(int exit_status, int error); /* wait status or error */
+  int (*show_version)(int verbose);
+  int (*log_ttyin)(const char *buf, unsigned int len,
+		   const char **errstr);
+  int (*log_ttyout)(const char *buf, unsigned int len,
+		    const char **errstr);
+  int (*log_stdin)(const char *buf, unsigned int len,
+		   const char **errstr);
+  int (*log_stdout)(const char *buf, unsigned int len,
+		    const char **errstr);
+  int (*log_stderr)(const char *buf, unsigned int len,
+		    const char **errstr);
+  void (*register_hooks)(int version,
+			 int (*register_hook)(struct sudo_hook *hook));
+  void (*deregister_hooks)(int version,
+			   int (*deregister_hook)(struct sudo_hook *hook));
+  int (*change_winsize)(unsigned int lines, unsigned int cols,
+			const char **errstr);
+  int (*log_suspend)(int signo, const char **errstr);
+  struct sudo_plugin_event * (*event_alloc)(void);
+};
+   #+end_src
+
+** Sending an email with bash
+   #+begin_src bash :dir /ssh:access:/home/tsranso
+mail -s 'test message subject' tsranso@clemson.edu <<< 'message body'
+# or from a file
+#mail -s 'test message subject' tsranso@clemson.edu < /tmp/mail_file
+   #+end_src
+
+** execute system command
+
+   #+begin_src C :tangle /tmp/execute-program.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int main () {
+  char command[5];
+
+  strcpy( command, "ls -l" );
+  system(command);
+
+  return(0);
+} 
+   #+end_src
+
+   #+RESULTS:
+   | total      | 628 |         |         |        |     |    |       |                        |
+   | drwxr-xr-x |   2 | tsranso | tsranso |   4096 | Jun | 30 | 18:38 | _minted-proposal       |
+   | -rw-r--r-- |   1 | tsranso | tsranso |    509 | Jun | 23 | 14:56 | process-monitoring.org |
+   | -rw-r--r-- |   1 | tsranso | tsranso |  45862 | Jun | 30 | 18:38 | proposal.pdf           |
+   | -rw-r--r-- |   1 | tsranso | tsranso |   5261 | Jun | 30 | 18:38 | proposal.tex           |
+   | -rw-r--r-- |   1 | tsranso | tsranso | 576646 | Jul | 14 | 13:29 | sudo-plugin.org        |
+
+** syslogging
+
+   #+begin_src C
+#include <syslog.h>
+
+setlogmask (LOG_UPTO (LOG_NOTICE));
+
+openlog ("exampleprog", LOG_CONS | LOG_NDELAY, LOG_LOCAL1);
+
+syslog (LOG_NOTICE, "Program started by User %d", getuid ());
+syslog (LOG_INFO, "A tree falls in a forest");
+
+closelog ();
+   #+end_src
+
+   #+RESULTS:
