@@ -1,0 +1,1 @@
+Open up [[file:sudo-plugin.org][the sudo plugin org file]] for the real meat and potatoes, that is where all other files are tangled from.
