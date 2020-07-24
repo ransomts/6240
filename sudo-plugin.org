@@ -615,7 +615,7 @@ A small edit has been made to the sudo plugin [[file:sudo/plugins/sudoers/loggin
 
 **** source code
 
-   #+begin_src C :tangle /tmp/socit-request-form.c
+   #+begin_src C :tangle socit-request-form.c
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -675,7 +675,7 @@ int main(){
 
      Be sure to tangle first
 
-   #+begin_src bash :dir /sudo::/tmp/
+   #+begin_src bash :dir /sudo:: :tangle deploy-form.sh
 gcc socit-request-form.c -o socit-request-form
 cp socit-request-form 
 chmod a+x /usr/local/bin/socit-request-form
@@ -705,7 +705,7 @@ echo 'not_my_real_password' | sudo -S grep 'sudo' /var/log/auth.log* 2>/dev/null
 *** Collect logs and add to database
     
   #+name: collection-log
-  #+begin_src bash :results output :tangle ~/sudo-logs/ransom-pull-all.sh :shebang /bin/bash
+  #+begin_src bash :results output :tangle ransom-pull-logs-mail-report.sh :shebang /bin/bash
 db_file=/home/tsranso/sudo-logs/log-db.cur
 tims_password=not_really_my_password
 
@@ -736,7 +736,7 @@ mail -s 'sudo report' tsranso@clemson.edu < $(python3 parse-sudo-db.py)
     #+INCLUDE: "private-data.org"
 
   #+NAME: parse-sudo-logs
-  #+begin_src python :tangle ~/sudo-logs/parse-sudo-db.py :results output :shebang "#!/usr/bin/env python3" :cache yes :noweb no-export
+  #+begin_src python :tangle parse-sudo-db.py :results output :shebang "#!/usr/bin/env python3" :cache yes :noweb no-export
 
 <<rawData>>
 
